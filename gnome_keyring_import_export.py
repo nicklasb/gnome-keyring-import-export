@@ -48,9 +48,14 @@ import sys
 import urllib.parse
 
 import lxml.etree
+import ctypes
 
 from lxml.etree import Element
-
+import keyring
+from gi.repository import Gtk
+from gi.repository import GnomeKeyring
+from gi.repository.GLib import Array
+from gi.repository import Secret
 
 def mk_copy(item):
     c = item.copy()
@@ -84,17 +89,38 @@ def export_keyrings_to_lastpass(to_file):
     with open(to_file, "w") as f:
         f.write(json.dumps(get_gnome_keyrings(), indent=2))
 
-def get_gnome_keyrings():
-    keyrings = {}
-    for keyring_name in GnomeKeyring.list_keyring_names_sync():
-        keyring_items = []
-        keyrings[keyring_name] = keyring_items
-        for id in GnomeKeyring.list_item_ids_sync(keyring_name):
-            item = get_item(keyring_name, id)
-            if item is not None:
-                keyring_items.append(item)
+def get_item(item):
+    item.load_secret_sync()
+    return {
+        'display_name': item.get_name(),
+        'owner_name': item.get_name_owner(),
+        'label': item.get_label(),
+        'secret': item.get_secret().get_text(),
+        'mtime': item.get_modified(),
+        'ctime': item.get_created(),
+        'attributes': item.get_attributes(),
+        "schema_name": item.get_schema_name()
+        }
 
-    return keyrings
+
+def get_gnome_keyrings():
+    _keyrings = {}
+    _service = Secret.Service.get_sync(Secret.ServiceFlags.LOAD_COLLECTIONS)
+    _service.unlock_sync([_service])
+    for _collection in _service.get_collections():
+
+        _collection_name = _collection.get_name()
+        _keyring_items = []
+        _keyrings[_collection_name] = _keyring_items
+
+        for _item in _collection.get_items():
+            if _item is not None:
+                _keyring_items.append(get_item(_item)  )
+
+        print(_collection_name + "\n" + str(_keyring_items))
+
+    print(str(_keyrings))
+    return _keyrings
 
 def export_chrome_to_firefox(to_file):
     """
@@ -144,20 +170,6 @@ def items_to_firefox_xml(items):
                                     passFieldName=attribs['password_element'],
                                     )))
     return lxml.etree.tostring(doc, pretty_print=True)
-
-def get_item(keyring_name, id):
-    try:
-        item = GnomeKeyring.item_get_info_sync(keyring_name, id)
-    except GnomeKeyring.IOError as e:
-        sys.stderr.write("Could not examine item (%s, %s): %s\n" % (keyring_name, id, e.message))
-        return None
-    return {
-        'display_name': item.get_display_name(),
-        'secret': item.get_secret(),
-        'mtime': item.get_mtime(),
-        'ctime': item.get_ctime(),
-        'attributes': GnomeKeyring.item_get_attributes_sync(keyring_name, id),
-        }
 
 
 def fix_attributes(d):
