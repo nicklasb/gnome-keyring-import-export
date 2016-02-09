@@ -79,7 +79,82 @@ def items_roughly_equal(item1, item2, ignore_secret=False):
 
     return c1 == c2
 
-def export_keyrings(to_file):
+def findfirstfield(_order, _item):
+    for _curr_field in _order:
+        if isinstance(_curr_field, list):
+            _curr_level = _item
+            for _curr_part in _curr_field:
+                if _curr_part in _curr_level:
+                    _curr_level = _curr_level[_curr_part]
+                    continue
+                else:
+                    _curr_level = None
+                    break
+            if _curr_level:
+                return _curr_level
+        else:
+            if _curr_field in _item:
+                return _item[_curr_field]
+    return ""
+
+
+
+def export_keyrings_csv(to_file):
+    _collections = get_gnome_keyrings()
+    _output = "url,type,username,password,hostname,extra,name,folder\n"
+    for _curr_collection in _collections.values():
+        for _item in _curr_collection:
+            if _item["secret"] != "":
+                if _item["schema_name"] == "chrome_libsecret_password_schema":
+                    _output += ",".join([findfirstfield([["attributes","action_url"], "label"], _item),
+                                         _item["schema_name"],
+                                         findfirstfield([["attributes","username_value"], ["attributes","account"]], _item),
+                                         _item["secret"],
+                                         _item["attributes"]["signon_realm"],
+                                         _item["display_name"],
+                                         _item["label"],
+                                         ""]
+                                        ) + "\n"
+                elif _item["schema_name"] == "org.freedesktop.Secret.Generic" and \
+                                findfirstfield([["attributes","username_value"], ["attributes","account"]], _item) != "":
+
+                    # url,type,username,password,hostname,extra,name,folder
+                    _output += ",".join([findfirstfield([["attributes","signon_realm"], ["attributes","service"], "label"], _item),
+                                         _item["schema_name"],
+                                         findfirstfield([["attributes","username_value"], ["attributes","account"]], _item),
+                                         _item["secret"],
+                                         findfirstfield(["signon_realm"], _item),
+                                         _item["display_name"],
+                                         _item["label"],
+                                         ""]
+                                        ) + "\n"
+
+                elif _item["schema_name"] == "org.gnome.keyring.Note":
+                    # url,type,username,password,hostname,extra,name,folder
+                    _output += ",".join(["http://sn",
+                                         _item["schema_name"],
+                                         _item["label"].split(" ")[-1],
+                                         _item["secret"],
+                                         "",
+                                         "",
+                                         _item["label"],
+                                         ""]
+                                        ) + "\n"
+                elif _item["schema_name"] == "org.gnome.keyring.NetworkPassword":
+                    # url,type,username,password,hostname,extra,name,folder
+                    _output += ",".join(["http://sn",
+                                         _item["schema_name"],
+                                         findfirstfield([["attributes","user"]], _item),
+                                         _item["secret"],
+                                         findfirstfield(["server"], _item),
+                                         findfirstfield([["attributes","domain"], ["attributes", "server"]], _item),
+                                         _item["label"],
+                                         ""]
+                                        ) + "\n"
+    with open(to_file, "w") as f:
+        f.write(_output)
+
+def export_keyrings_json(to_file):
     with open(to_file, "w") as f:
         f.write(json.dumps(get_gnome_keyrings(), indent=2))
 
@@ -150,7 +225,7 @@ def export_chrome_to_firefox(to_file):
 
     xml = items_to_firefox_xml(items)
     with open(to_file, "w") as f:
-        f.write(xml)
+        f.write(str(xml, encoding="utf-8"))
 
 def items_to_firefox_xml(items):
     doc = Element('xml')
@@ -226,8 +301,10 @@ def import_keyrings(from_file):
 
 if __name__ == '__main__':
     if len(sys.argv) == 3:
-        if sys.argv[1] == "export":
-            export_keyrings(sys.argv[2])
+        if sys.argv[1] == "exportjson":
+            export_keyrings_json(sys.argv[2])
+        if sys.argv[1] == "exportcsv":
+            export_keyrings_csv(sys.argv[2])
         if sys.argv[1] == "import":
             import_keyrings(sys.argv[2])
         if sys.argv[1] == "export_chrome_to_firefox":
