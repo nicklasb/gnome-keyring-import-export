@@ -186,11 +186,14 @@ def get_gnome_keyrings():
 
         _collection_name = _collection.get_name()
         _keyring_items = []
-        _keyrings[_collection_name] = _keyring_items
 
         for _item in _collection.get_items():
             if _item is not None:
-                _keyring_items.append(get_item(_item)  )
+                _keyring_items.append(get_item(_item))
+        if _collection_name not in _keyrings:
+            _keyrings[_collection_name] = _keyring_items
+        else:
+            _keyrings["{0}_dupe".format(_collection_name)] = _keyring_items
 
         print(_collection_name + "\n" + str(_keyring_items))
 
@@ -253,7 +256,7 @@ def fix_attributes(d):
 
 def import_keyrings(from_file):
     with open(from_file, "r") as f:
-        keyrings = json.loads(f)
+        keyrings = json.loads(f.read())
 
     for keyring_name, keyring_items in list(keyrings.items()):
         try:
