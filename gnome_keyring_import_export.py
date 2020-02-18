@@ -256,7 +256,7 @@ def fix_attributes(d):
 
 def import_keyrings(from_file):
     with open(from_file, "r") as f:
-        keyrings = json.loads(f)
+        keyrings = json.loads(f.read())
 
     for keyring_name, keyring_items in list(keyrings.items()):
         try:
