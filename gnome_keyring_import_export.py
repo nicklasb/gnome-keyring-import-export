@@ -186,11 +186,12 @@ def get_gnome_keyrings():
 
         _collection_name = _collection.get_name()
         _keyring_items = []
-        _keyrings[_collection_name] = _keyring_items
 
         for _item in _collection.get_items():
             if _item is not None:
                 _keyring_items.append(get_item(_item)  )
+
+        _keyrings[_collection_name] = _keyring_items
 
         print(_collection_name + "\n" + str(_keyring_items))
 
